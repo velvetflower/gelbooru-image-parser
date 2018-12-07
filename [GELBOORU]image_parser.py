@@ -1,4 +1,3 @@
-import vk_requests
 import requests
 import logging
 import json
@@ -7,11 +6,10 @@ import random
 import re
 from bs4 import BeautifulSoup, SoupStrainer
 from urllib.request import urlopen
-#from vk_requests.auth import InteractiveVKSession
 
 
 lister = []
-tag = 'springveiv'
+tag = 'portrait'
 enterend = 2
 end = enterend * 42
 
