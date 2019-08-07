@@ -13,8 +13,8 @@ Prepare:
 	
 Configure:
 
-	1. fill variables
-	2. launch
+	1. change api_key and user_id from your gelbooru settings
+	2  change "name" to another needed tag or press "2" after script starts for input tag
 
 Use!
 
