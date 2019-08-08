@@ -25,10 +25,11 @@ class GelBot:
     global cpectag
     global succ
     def __init__(self, **kwargs):
-        self.api_key = "&api_key=INSERT&user_id=INSERT"
+        self.api_key = "&api_key=721e9e89f7818b17800549d6c392c475efee8dc501eff80ce65e6f4966ed4046&user_id=405938"
         self.api_access = f"https://gelbooru.com//index.php?page=dapi&s=post&q=index&limit=5&pid={pageId}&json=1&"
         self.tagDelimiter = "%20"
-        self.tags = [cpectag,"sort:score:desc"]
+        #self.testUrl = "https://gelbooru.com/index.php?page=dapi&s=post&q=index&tags=loli+swimsuit&limit=10&pid=1&json=1&api_key=721e9e89f7818b17800549d6c392c475efee8dc501eff80ce65e6f4966ed4046&user_id=405938"
+        self.tags = ["loli",cpectag,"sort:score:desc"]
         self.newsess = requests.Session() # init new session
 
         # load tags from user input to search request
@@ -37,15 +38,17 @@ class GelBot:
             for items in self.tags:
                 self.api_access += items + self.tagDelimiter # add tags to search
             self.api_access += self.api_key
-            print ("[OK] Tags loaded!")
+            #print ("[OK] Tags loaded!")
         else:
             print ("[ERR] Tags not setted!")
             sys.exit(status=0, message=None)
         
     def analyze_json(self, cntr):
         global succ
+        #print ("Used url:",self.api_access)
         self.baka = self.newsess.get(self.api_access)
         self.tojson = json.loads(self.baka.text)
+        #print(f"Len: {len(self.tojson)}")
         getUrl = self.tojson[cntr]["file_url"]
         getHash = self.tojson[cntr]["hash"]
         getName = self.tojson[cntr]["image"]
@@ -53,37 +56,39 @@ class GelBot:
         getHeight = self.tojson[cntr]["height"]
         getTags = self.tojson[cntr]["tags"]
 
-        currentimagename = "random" + str(getName)
+        currentimagename = "D:/lolis/random/" + str(getName)
         justname = str(getName)
 
         if (getWidth > 50 or getHeight > 50):
             print ("[OK] Current image name:", justname)
             
-            imlist1 = os.listdir("images")
+            listlolis = os.listdir("D:/lolis")
             kaka = 0
-            for i in imlist1:
-                if (justname in os.listdir("images" + i)):
+            for i in listlolis:
+                if (justname in os.listdir("D:/lolis/" + i)):
                     kaka = 1
+                    break
 
             if (kaka == 0):
-                #insert below your api_key and user_id
-                tagUrl = f"https://gelbooru.com//index.php?page=dapi&s=tag&q=index&json=1&limit=300&names={getTags}&api_key=INSERT&user_id=INSERT"
-                sleep(2)
+                tagUrl = f"https://gelbooru.com//index.php?page=dapi&s=tag&q=index&json=1&limit=300&names={getTags}&api_key=721e9e89f7818b17800549d6c392c475efee8dc501eff80ce65e6f4966ed4046&user_id=405938"
                 kk = self.newsess.get(tagUrl.replace(" ",self.tagDelimiter))
+                sleep(1)
                 tagToJson = json.loads(kk.text)
 
                 artistName = ""
                 bakartist = 0
                 for i in tagToJson:
                     if (i["type"] == "artist"):
+                        #print ("[OK] Found artist:",i["tag"])
                         artistName = i["tag"].replace(':','').replace('<','').replace('>','').replace('"','').replace('/','').replace('\\','').replace('|','').replace('?','').replace('*','')
                         if (artistName != "" and artistName != " "):
+                            #print (f"[OK] Artist name is '{artistName}'")
                             bakartist = 1
                 if (bakartist == 0):
                     print ("[ERR] Can't find artist :(")
 
                 if (bakartist == 1):
-                    fullPath = "images" + artistName + "/" + justname
+                    fullPath = "D:/lolis/" + artistName + "/" + justname
                     if not os.path.exists(os.path.dirname(fullPath)):
                         os.makedirs(os.path.dirname(fullPath))
                     with open(fullPath, 'wb+') as f:
@@ -94,6 +99,7 @@ class GelBot:
                     print ("[INF] Total saved:",succ) 
                     print ("=========================================")
                 else:
+                    #fullPath = "lolis/" + "random/" + justname
                     with open(currentimagename, 'wb+') as f:
                         f.write(requests.get(getUrl).content) # save image
                         print ("[OK] Image saved to random!")
@@ -111,14 +117,21 @@ class GelBot:
             print ("=========================================")
 
 
-askuser = input("[INF] Do you want to parse artist? y/n: ")
-if (askuser == "n"):
-    with open('progress.txt') as f:
+askuser = input("""
+GelBooru Parser v0.1:
+                
+1. Parse specified artist.
+2. Collect all images by tag.
+3. Fill existed artists in folder.
+
+Your choice: """)
+if (askuser == "2"):
+    with open('progressloli.txt') as f:
         variable=f.read()
         baka, beka = variable.split((":"))
         pageId = int(baka)
         imageId = int(beka)
-    cpectag = "name"
+    cpectag = "loli"
     beka = 1
     badboys = 0
     while beka == 1:
@@ -133,9 +146,9 @@ if (askuser == "n"):
                 imageId = 0
             else:
                 imageId += 1
-            with open("progress.txt", "w") as f:
+            with open("progressloli.txt", "w") as f:
                 f.write(str(pageId) + ":" + str(imageId))
-            sleep(2) 
+            sleep(1) 
         except Exception as e:
             badboys += 1
             print (e)
@@ -145,7 +158,7 @@ if (askuser == "n"):
                 imageId = 0
             else:
                 imageId += 1
-else:
+elif (askuser == "1"):
     askuser2 = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
     if (askuser2 == "y"):
         with open("artist.txt", "w") as f:
@@ -174,7 +187,7 @@ else:
                 imageId += 1
             with open("artist.txt", "w") as f:
                 f.write(str(pageId) + ":" + str(imageId))
-            sleep(2) 
+            sleep(1) 
         except Exception as e:
             badboys += 1
             print (e)
@@ -184,3 +197,77 @@ else:
                 imageId = 0
             else:
                 imageId += 1
+elif (askuser == "3"):
+    askuser2 = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
+    if (askuser2 == "y"):
+        with open("artist.txt", "w") as f:
+            f.write("0:0")
+            print ("[OK] Progess cleaned!")
+    with open('artist.txt') as f:
+        variable=f.read()
+        baka, beka = variable.split((":"))
+        pageId = int(baka)
+        imageId = int(beka)
+    artists = os.listdir("D:/lolis")
+    for i in artists:
+        cpectag = i.replace("\n","")
+        badboys = 0
+        beka = 1
+        with open("updatedartists.txt") as f:
+            content = f.readlines()
+        print ("List of used artists:",content)
+        if (cpectag + "\n" not in content):
+            sleep(1)
+            while beka == 1:
+                try:
+                    print ("[INF] Exceptions:",badboys,"|","used artists:",len(content),"/",len(artists))
+                    print ("=========================================")
+                    print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
+                    print ("[INF] Current artist:",i)
+
+                    sheet = GelBot()
+                    sheet.analyze_json(imageId)
+                    if (imageId == 4):
+                        pageId += 1
+                        imageId = 0
+                    else:
+                        imageId += 1
+                    with open("artist.txt", "w") as f:
+                        f.write(str(pageId) + ":" + str(imageId))
+                    sleep(1)
+                except Exception as e:
+                    print ("gak")
+                    badboys += 1
+                    print (e)
+                    with open("updatedartists.txt", "a") as f:
+                        f.write(i + "\n")
+                    pageId = 0
+                    imageId = 0
+                    break
+        else:
+            print ("[ERR] Artist", cpectag ,"already parsed before!")
+        
+        
+        
+        
+
+
+# [{"source":"",
+#   "directory":"c6\/ee",
+#   "hash":"c6ee02d47cbe8e4b757093e2128edb00",
+#   "height":650,
+#   "id":4809425,
+#   "image":"c6ee02d47cbe8e4b757093e2128edb00.jpeg",
+#   "change":1562514963,
+#   "owner":"anonymous400",
+#   "parent_id":null,
+#   "rating":"e",
+#   "sample":false,
+#   "sample_height":0,
+#   "sample_width":0,
+#   "score":0,
+#   "tags":"1boy 1girl 3d erection loli nude penis",
+#   "width":400,
+#   "file_url":"https:\/\/img2.gelbooru.com\/images\/c6\/ee\/c6ee02d47cbe8e4b757093e2128edb00.jpeg",
+#   "created_at":"Sun Jul 07 10:56:03 -0500 2019"}
+#   ]
