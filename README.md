@@ -1,8 +1,13 @@
-# Gelbooru image parser
+# Gelbooru image parser v0.2
 
 
 <h2>Work in progress!</h2>
 The project is not completed yet.
+
+<h2>Functions:</h2>
+1. Parse by one tag.
+2. Parse by artist.
+3. Filling in existing folders.
 
 <h2>How to:</h2>
 
