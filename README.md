@@ -5,9 +5,10 @@
 The project is not completed yet.
 
 <h2>Functions:</h2>
-* 1. Parse by one tag.
-* 2. Parse by artist.
-* 3. Filling in existing folders.
+
+- Parse by one tag.
+- Parse by artist.
+- Filling in existing folders.
 
 <h2>How to:</h2>
 
