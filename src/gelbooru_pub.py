@@ -1,11 +1,17 @@
 import requests
 import sys
 import json
-from time import sleep
 import os
 import piexif
 
 succ = 0
+sapi_key = "" # insert here your api key (take it from gelbooru account settings)
+suser_id = "" # insert here your user id (take it from gelbooru account settings)
+default_path = "pics/"
+random_patch = "pics/random/"
+
+additional_tag = "1girl" # used in all options
+main_tag = "1girl" # used in 2nd option
 
 def insert_tags(name,tags):
     try:
@@ -16,7 +22,7 @@ def insert_tags(name,tags):
         zeroth_ifd = {40094: tages.encode('utf16')}
         exif_bytes = piexif.dump({"0th":zeroth_ifd})
         piexif.insert(exif_bytes,name)
-        print ("[OK] Tags added!")
+        #print ("[OK] Tags added!")
     except piexif._exceptions.InvalidImageDataError:
         print ("[ERR] Can't add tags to this image!")
 
@@ -24,11 +30,12 @@ class GelBot:
     global pageId
     global cpectag
     global succ
+    global currentDirs
     def __init__(self, **kwargs):
-        self.api_key = "&api_key=INSERT&user_id=INSERT"
+        self.api_key = f"&api_key={sapi_key}&user_id={suser_id}"
         self.api_access = f"https://gelbooru.com//index.php?page=dapi&s=post&q=index&limit=5&pid={pageId}&json=1&"
         self.tagDelimiter = "%20"
-        self.tags = [cpectag,"sort:score:desc"]
+        self.tags = [additional_tag, cpectag, "sort:score:desc"]
         self.newsess = requests.Session() # init new session
 
         # load tags from user input to search request
@@ -55,23 +62,22 @@ class GelBot:
         getHeight = self.tojson[cntr]["height"]
         getTags = self.tojson[cntr]["tags"]
 
-        currentimagename = "random" + str(getName)
+        currentimagename = random_patch + str(getName)
         justname = str(getName)
 
         if (getWidth > 50 or getHeight > 50):
             print ("[OK] Current image name:", justname)
             
-            listimagesq = os.listdir("images")
-            kaka = 0
-            for i in listimagesq:
-                if (justname in os.listdir("images" + i)):
-                    kaka = 1
+            authorsList = os.listdir(default_path)
+            isAllOk = 0
+            for i in authorsList:
+                if (justname in os.listdir(default_path + i)):
+                    isAllOk = 1
                     break
 
-            if (kaka == 0):
-                tagUrl = f"https://gelbooru.com//index.php?page=dapi&s=tag&q=index&json=1&limit=300&names={getTags}&api_key=INSERT&user_id=INSERT"
+            if (isAllOk == 0):
+                tagUrl = f"https://gelbooru.com//index.php?page=dapi&s=tag&q=index&json=1&limit=300&names={getTags}&api_key={sapi_key}&user_id={suser_id}"
                 kk = self.newsess.get(tagUrl.replace(" ",self.tagDelimiter))
-                sleep(1)
                 tagToJson = json.loads(kk.text)
 
                 artistName = ""
@@ -83,11 +89,12 @@ class GelBot:
                         if (artistName != "" and artistName != " "):
                             #print (f"[OK] Artist name is '{artistName}'")
                             bakartist = 1
+                            break
                 if (bakartist == 0):
                     print ("[ERR] Can't find artist :(")
 
-                if (bakartist == 1):
-                    fullPath = "images" + artistName + "/" + justname
+                if (bakartist == 1 and artistName != " "):
+                    fullPath = default_path + artistName + "/" + justname
                     if not os.path.exists(os.path.dirname(fullPath)):
                         os.makedirs(os.path.dirname(fullPath))
                     with open(fullPath, 'wb+') as f:
@@ -95,152 +102,146 @@ class GelBot:
                         print ("[OK] Image saved to", artistName + "!")
                         insert_tags(fullPath,getTags)
                         succ += 1
-                    print ("[INF] Total saved:",succ) 
-                    print ("=========================================")
                 else:
                     with open(currentimagename, 'wb+') as f:
                         f.write(requests.get(getUrl).content) # save image
                         print ("[OK] Image saved to random!")
                         insert_tags(currentimagename,getTags.replace(" ", ";"))
                         succ += 1
-                    print ("[INF] Total saved:",succ) 
-                    print ("=========================================")
             else:
                 print ("[ERR] Image already was saved!")
-                print ("[INF] Total saved:",succ) 
-                print ("=========================================")
         else:
             print ("[ERR] Image has low size!")
-            print ("[INF] Total saved:",succ) 
-            print ("=========================================")
 
 
-askuser = input("""
-GelBooru Parser v0.2:
-                
-1. Parse specified artist.
-2. Collect all images by tag.
-3. Fill existed artists in folder.
+while True:
+    askuser = input("""
+    GelBooru Parser v0.3:
+                    
+    1. Parse specified artist.
+    2. Collect all images by main tag.
+    3. Fill existed artists in folder.
 
-Your choice: """)
-if (askuser == "2"):
-    with open('progress.txt') as f:
-        variable=f.read()
-        baka, beka = variable.split((":"))
-        pageId = int(baka)
-        imageId = int(beka)
-    cpectag = "1girl"
-    beka = 1
-    badboys = 0
-    while beka == 1:
-        print ("[INF] Exceptions:",badboys)
-        try:
-            print ("=========================================")
-            print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
-            sheet = GelBot()
-            sheet.analyze_json(imageId)
-            if (imageId == 4):
-                pageId += 1
-                imageId = 0
-            else:
-                imageId += 1
-            with open("progress.txt", "w") as f:
-                f.write(str(pageId) + ":" + str(imageId))
-            sleep(1) 
-        except Exception as e:
-            badboys += 1
-            print (e)
-            sleep(10)
-            if (imageId == 4):
-                pageId += 1
-                imageId = 0
-            else:
-                imageId += 1
-elif (askuser == "1"):
-    askuser2 = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
-    if (askuser2 == "y"):
-        with open("artist.txt", "w") as f:
-            f.write("0:0")
-            print ("[OK] Progess cleaned!")
-    with open('artist.txt') as f:
-        variable=f.read()
-        baka, beka = variable.split((":"))
-        pageId = int(baka)
-        imageId = int(beka)
-    askuser3 = input ("[INF] Please specify artist name: ")
-    cpectag = askuser3
-    beka = 1
-    badboys = 0
-    while beka == 1:
-        print ("[INF] Exceptions:",badboys)
-        try:
-            print ("=========================================")
-            print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
-            sheet = GelBot()
-            sheet.analyze_json(imageId)
-            if (imageId == 4):
-                pageId += 1
-                imageId = 0
-            else:
-                imageId += 1
-            with open("artist.txt", "w") as f:
-                f.write(str(pageId) + ":" + str(imageId))
-            sleep(1) 
-        except Exception as e:
-            badboys += 1
-            print (e)
-            break
-            if (imageId == 4):
-                pageId += 1
-                imageId = 0
-            else:
-                imageId += 1
-elif (askuser == "3"):
-    askuser2 = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
-    if (askuser2 == "y"):
-        with open("artist.txt", "w") as f:
-            f.write("0:0")
-            print ("[OK] Progess cleaned!")
-    with open('artist.txt') as f:
-        variable=f.read()
-        baka, beka = variable.split((":"))
-        pageId = int(baka)
-        imageId = int(beka)
-    artists = os.listdir("images")
-    for i in artists:
-        cpectag = i.replace("\n","")
-        badboys = 0
+    Your choice: """)
+    if (askuser == "2"):
+        currentDirs = len(os.listdir(default_path))
+        with open('2_progress.txt') as f:
+            variable=f.read()
+            baka, beka = variable.split((":"))
+            pageId = int(baka)
+            imageId = int(beka)
+        cpectag = main_tag
         beka = 1
-        with open("updatedartists.txt") as f:
-            content = f.readlines()
-        print ("List of used artists:",content)
-        if (cpectag + "\n" not in content):
-            sleep(1)
-            while beka == 1:
-                try:
-                    print ("[INF] Exceptions:",badboys,"|","used artists:",len(content),"/",len(artists))
-                    print ("=========================================")
-                    print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
-                    print ("[INF] Current artist:",i)
-
-                    sheet = GelBot()
-                    sheet.analyze_json(imageId)
-                    if (imageId == 4):
-                        pageId += 1
-                        imageId = 0
-                    else:
-                        imageId += 1
-                    with open("artist.txt", "w") as f:
-                        f.write(str(pageId) + ":" + str(imageId))
-                    sleep(1)
-                except Exception as e:
-                    print ("gak")
-                    badboys += 1
-                    print (e)
-                    with open("updatedartists.txt", "a") as f:
-                        f.write(i + "\n")
-                    pageId = 0
+        badboys = 0
+        while beka == 1:
+            print ("[INF] Exceptions:",badboys,"|","Authors:",len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", succ)
+            try:
+                print ("==========================================================\\")
+                print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
+                sheet = GelBot()
+                sheet.analyze_json(imageId)
+                if (imageId == 4):
+                    pageId += 1
                     imageId = 0
-                    break
-        else:
-            print ("[ERR] Artist", cpectag ,"already parsed before!")
+                else:
+                    imageId += 1
+                with open("2_progress.txt", "w") as f:
+                    f.write(str(pageId) + ":" + str(imageId))
+            except Exception as e:
+                badboys += 1
+                print (e)
+                break
+                if (imageId == 4):
+                    pageId += 1
+                    imageId = 0
+                else:
+                    imageId += 1
+            print ("==========================================================\\")
+    elif (askuser == "1"):
+        askuser2 = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
+        if (askuser2 == "y"):
+            with open("artist.txt", "w") as f:
+                f.write("0:0")
+                print ("[OK] Progess cleaned!")
+        with open('artist.txt') as f:
+            variable=f.read()
+            baka, beka = variable.split((":"))
+            pageId = int(baka)
+            imageId = int(beka)
+        askuser3 = input ("[INF] Please specify artist name: ")
+        cpectag = askuser3
+        beka = 1
+        badboys = 0
+        while beka == 1:
+            print ("[INF] Exceptions:",badboys,"|","Images: +", succ)
+            try:
+                print ("==========================================================\\")
+                print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
+                sheet = GelBot()
+                sheet.analyze_json(imageId)
+                if (imageId == 4):
+                    pageId += 1
+                    imageId = 0
+                else:
+                    imageId += 1
+                with open("artist.txt", "w") as f:
+                    f.write(str(pageId) + ":" + str(imageId))
+            except Exception as e:
+                badboys += 1
+                print (e)
+                break
+                if (imageId == 4):
+                    pageId += 1
+                    imageId = 0
+                else:
+                    imageId += 1
+            print ("==========================================================\\")
+    elif (askuser == "3"):
+        askuser2 = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
+        if (askuser2 == "y"):
+            with open("artist.txt", "w") as f:
+                f.write("0:0")
+                print ("[OK] Progess cleaned!")
+        currentDirs = len(os.listdir(default_path))
+        with open('artist.txt') as f:
+            variable=f.read()
+            baka, beka = variable.split((":"))
+            pageId = int(baka)
+            imageId = int(beka)
+        artists = os.listdir(default_path)
+        for i in artists:
+            cpectag = i.replace("\n","")
+            badboys = 0
+            beka = 1
+            with open("updatedartists.txt") as f:
+                content = f.readlines()
+            #print ("List of used artists:",content)
+            if (cpectag + "\n" not in content):
+                while beka == 1:
+                    try:
+                        print ("[INF] Exceptions:",badboys,"|","Used artists:",len(content),"/",len(artists),"| Authors:",len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", succ)
+                        print ("==========================================================\\")
+                        print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
+                        print ("[INF] Current artist:",i)
+
+                        sheet = GelBot()
+                        sheet.analyze_json(imageId)
+                        if (imageId == 4):
+                            pageId += 1
+                            imageId = 0
+                        else:
+                            imageId += 1
+                        with open("artist.txt", "w") as f:
+                            f.write(str(pageId) + ":" + str(imageId))
+                    except Exception as e:
+                        badboys += 1
+                        print (e)
+                        with open("updatedartists.txt", "a") as f:
+                            f.write(i + "\n")
+                        pageId = 0
+                        imageId = 0
+                        break
+                    print ("==========================================================\\")
+            else:
+                print ("[ERR] Artist", cpectag ,"already parsed before!")
+    print ("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>> Task finished!\n\n")
