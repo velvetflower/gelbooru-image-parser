@@ -1,19 +1,24 @@
 import requests
-import sys
 import json
-import os
 import piexif
+import os
+import time
 
-succ = 0
+newSession = requests.Session() # init new session
+total = 0 # total images saved in current session
+tagDelimiter = "%20" # delimiter between tags
+pageCounter = 0
 sapi_key = "" # insert here your api key (take it from gelbooru account settings)
 suser_id = "" # insert here your user id (take it from gelbooru account settings)
-default_path = "pics/"
-random_patch = "pics/random/"
+default_path = "C:/pics/"
+random_path = "C:/pics/random/"
 
-additional_tag = "1girl" # used in all options
-main_tag = "1girl" # used in 2nd option
+additional_tag = "" # used in all options
+main_tag = "" # used in 2nd option
+improvement_tag = "" # leave empty or "sort:score:desc"
 
 def insert_tags(name,tags):
+    """ insert tags into image description """
     try:
         undtags = tags.split(" ")
         tages = ""
@@ -22,226 +27,135 @@ def insert_tags(name,tags):
         zeroth_ifd = {40094: tages.encode('utf16')}
         exif_bytes = piexif.dump({"0th":zeroth_ifd})
         piexif.insert(exif_bytes,name)
-        #print ("[OK] Tags added!")
+        return 1
     except piexif._exceptions.InvalidImageDataError:
         print ("[ERR] Can't add tags to this image!")
+        return 0
 
-class GelBot:
-    global pageId
-    global cpectag
-    global succ
-    global currentDirs
-    def __init__(self, **kwargs):
-        self.api_key = f"&api_key={sapi_key}&user_id={suser_id}"
-        self.api_access = f"https://gelbooru.com//index.php?page=dapi&s=post&q=index&limit=5&pid={pageId}&json=1&"
-        self.tagDelimiter = "%20"
-        self.tags = [additional_tag, cpectag, "sort:score:desc"]
-        self.newsess = requests.Session() # init new session
+def check_artist(tags):
+    ready_url = f"https://gelbooru.com//index.php?page=dapi&s=tag&q=index&json=1&limit=1000&names={tags}&api_key={sapi_key}&user_id={suser_id}"
+    askForTags = newSession.get(ready_url.replace(" ", tagDelimiter)) # send get request for tags
+    tagsToJson = json.loads(askForTags.text)
+    artistName = "" # ident artist name variable
+    for tag in tagsToJson:
+        if tag["type"] == "artist":
+            artistName = tag["tag"].replace(':','').replace('<','').replace('>','').replace('"','').replace('/','').replace('\\','').replace('|','').replace('?','').replace('*','') # clean artist name so it can be used while creating folders
+            if (artistName != "" and artistName != " "): # be sure that all is going ok
+                return artistName
+            else:
+                print ("[ERR] Artist name is empty.")
+                return 0
+    if artistName == "":
+        print ("[ERR] Can't find artist")
+        return 0
 
-        # load tags from user input to search request
-        if len(self.tags) != 0:
-            self.api_access += "tags=sort:score:desc%20"
-            for items in self.tags:
-                self.api_access += items + self.tagDelimiter # add tags to search
-            self.api_access += self.api_key
-            #print ("[OK] Tags loaded!")
-        else:
-            print ("[ERR] Tags not setted!")
-            sys.exit(status=0, message=None)
-        
-    def analyze_json(self, cntr):
-        global succ
-        #print ("Used url:",self.api_access)
-        self.baka = self.newsess.get(self.api_access)
-        self.tojson = json.loads(self.baka.text)
-        #print(f"Len: {len(self.tojson)}")
-        getUrl = self.tojson[cntr]["file_url"]
-        getHash = self.tojson[cntr]["hash"]
-        getName = self.tojson[cntr]["image"]
-        getWidth = self.tojson[cntr]["width"]
-        getHeight = self.tojson[cntr]["height"]
-        getTags = self.tojson[cntr]["tags"]
+def bot_ident(pageId):
+    """ ident bot variables and etc ... """
+    api_key = f"&api_key={sapi_key}&user_id={suser_id}" # auth data
+    api_access = f"https://gelbooru.com//index.php?page=dapi&s=post&q=index&limit=1000&pid={pageId}&json=1&" # increase limit to 100
+    tags = [additional_tag, main_tag, improvement_tag] # combine usefull tags
 
-        currentimagename = random_patch + str(getName)
-        justname = str(getName)
+    # load tags from user input to search request
+    if len(tags) != 0: # if tags not null
+        api_access += "tags=" # add tags name
+        for items in tags:
+            api_access += items + tagDelimiter # add tags to search string
+        api_access += api_key # add authentication
+        return api_access # return final string that will go to get request
+    else:
+        print ("[ERR] Tags not setted!")
+        return 0
 
-        if (getWidth > 50 or getHeight > 50):
-            print ("[OK] Current image name:", justname)
-            
-            authorsList = os.listdir(default_path)
-            isAllOk = 0
-            for i in authorsList:
-                if (justname in os.listdir(default_path + i)):
-                    isAllOk = 1
-                    break
+def bot_main(api_line):
+    global total
+    if api_line != 0 :
+        print ("[REQ] Request was sent!")
+        baka = newSession.get(api_line) # send get request to gelbooru
+        tojson = json.loads(baka.text) # load response to json, it returns 100 images
+        lilCounter = 0
+        for imageString in tojson: # take one by one
+            print ("Images was saved: +",total,"| Progress:",lilCounter,"/","1000","| Pages:",pageCounter)
+            lilCounter += 1
+            getUrl = imageString["file_url"] # main url to download
+            getName = imageString["image"] # name with hash to use in image name
+            getTags = imageString["tags"] # tags to add to image description
 
-            if (isAllOk == 0):
-                tagUrl = f"https://gelbooru.com//index.php?page=dapi&s=tag&q=index&json=1&limit=300&names={getTags}&api_key={sapi_key}&user_id={suser_id}"
-                kk = self.newsess.get(tagUrl.replace(" ",self.tagDelimiter))
-                tagToJson = json.loads(kk.text)
+            randomFolder = random_path + str(getName) # ident random folder
 
-                artistName = ""
-                bakartist = 0
-                for i in tagToJson:
-                    if (i["type"] == "artist"):
-                        #print ("[OK] Found artist:",i["tag"])
-                        artistName = i["tag"].replace(':','').replace('<','').replace('>','').replace('"','').replace('/','').replace('\\','').replace('|','').replace('?','').replace('*','')
-                        if (artistName != "" and artistName != " "):
-                            #print (f"[OK] Artist name is '{artistName}'")
-                            bakartist = 1
-                            break
-                if (bakartist == 0):
-                    print ("[ERR] Can't find artist :(")
+            print ("[OK] Image name:", getName) # print out imageName
 
-                if (bakartist == 1 and artistName != " "):
-                    fullPath = default_path + artistName + "/" + justname
-                    if not os.path.exists(os.path.dirname(fullPath)):
-                        os.makedirs(os.path.dirname(fullPath))
-                    with open(fullPath, 'wb+') as f:
+            checkArtist = check_artist(getTags) # check if artist exists in available tags
+
+            if checkArtist != 0:
+
+                fullImagePath = default_path + checkArtist + "/" + getName # looks like C:/pics/artist/123.jpg
+                if not os.path.exists(os.path.dirname(fullImagePath)): 
+                    os.makedirs(os.path.dirname(fullImagePath)) # make new dir if not yet created
+                
+                toBeSure = 0 # marker
+                for image in os.listdir(default_path + checkArtist):
+                    if image == getName:
+                        print ("[ERR] Image already was saved!")
+                        toBeSure = 1
+                        break
+
+                # continue here
+                if toBeSure == 0:
+                    with open(fullImagePath, 'wb+') as f: # open to save image
                         f.write(requests.get(getUrl).content) # save image
-                        print ("[OK] Image saved to", artistName + "!")
-                        insert_tags(fullPath,getTags)
-                        succ += 1
-                else:
-                    with open(currentimagename, 'wb+') as f:
+                        print ("[OK] Image saved to", checkArtist + "!")
+                        insert_tags(fullImagePath, getTags.replace(" ", ";"))
+                        total += 1 # increase total saved images counter
+
+            else: # if artist name not found
+
+                toBeSure = 0 # marker
+                for image in os.listdir(random_path):
+                    if image == getName:
+                        print ("[ERR] Image already was saved!")
+                        toBeSure = 1
+                        break
+                
+                if toBeSure == 0:
+                    with open(randomFolder, 'wb+') as f:
                         f.write(requests.get(getUrl).content) # save image
                         print ("[OK] Image saved to random!")
-                        insert_tags(currentimagename,getTags.replace(" ", ";"))
-                        succ += 1
-            else:
-                print ("[ERR] Image already was saved!")
-        else:
-            print ("[ERR] Image has low size!")
+                        insert_tags(randomFolder, getTags.replace(" ", ";"))
+                        total += 1 # increase total saved images counter
+        lilCounter = 0
+        print ("+++ 1000 images was checked! +++")
 
+    else:
+        print ("[ERR] Please specify tags!")
+        return 0
 
-while True:
-    askuser = input("""
-    GelBooru Parser v0.3:
+def main():
+    global total
+    global pageCounter
+    while True:
+        askuser = input("""
+    GelBooru Parser v0.4:
                     
-    1. Parse specified artist.
-    2. Collect all images by main tag.
+    1. Collect all images by main tag.
+    2. Parse specified artist. 
     3. Fill existed artists in folder.
 
     Your choice: """)
-    if (askuser == "2"):
-        currentDirs = len(os.listdir(default_path))
-        with open('2_progress.txt') as f:
-            variable=f.read()
-            baka, beka = variable.split((":"))
-            pageId = int(baka)
-            imageId = int(beka)
-        cpectag = main_tag
-        beka = 1
-        badboys = 0
-        while beka == 1:
-            print ("[INF] Exceptions:",badboys,"|","Authors:",len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", succ)
-            try:
-                print ("==========================================================\\")
-                print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
-                sheet = GelBot()
-                sheet.analyze_json(imageId)
-                if (imageId == 4):
-                    pageId += 1
-                    imageId = 0
-                else:
-                    imageId += 1
-                with open("2_progress.txt", "w") as f:
-                    f.write(str(pageId) + ":" + str(imageId))
-            except Exception as e:
-                badboys += 1
-                print (e)
-                break
-                if (imageId == 4):
-                    pageId += 1
-                    imageId = 0
-                else:
-                    imageId += 1
-            print ("==========================================================\\")
-    elif (askuser == "1"):
-        askuser2 = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
-        if (askuser2 == "y"):
-            with open("artist.txt", "w") as f:
-                f.write("0:0")
-                print ("[OK] Progess cleaned!")
-        with open('artist.txt') as f:
-            variable=f.read()
-            baka, beka = variable.split((":"))
-            pageId = int(baka)
-            imageId = int(beka)
-        askuser3 = input ("[INF] Please specify artist name: ")
-        cpectag = askuser3
-        beka = 1
-        badboys = 0
-        while beka == 1:
-            print ("[INF] Exceptions:",badboys,"|","Images: +", succ)
-            try:
-                print ("==========================================================\\")
-                print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
-                sheet = GelBot()
-                sheet.analyze_json(imageId)
-                if (imageId == 4):
-                    pageId += 1
-                    imageId = 0
-                else:
-                    imageId += 1
-                with open("artist.txt", "w") as f:
-                    f.write(str(pageId) + ":" + str(imageId))
-            except Exception as e:
-                badboys += 1
-                print (e)
-                break
-                if (imageId == 4):
-                    pageId += 1
-                    imageId = 0
-                else:
-                    imageId += 1
-            print ("==========================================================\\")
-    elif (askuser == "3"):
-        askuser2 = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
-        if (askuser2 == "y"):
-            with open("artist.txt", "w") as f:
-                f.write("0:0")
-                print ("[OK] Progess cleaned!")
-        currentDirs = len(os.listdir(default_path))
-        with open('artist.txt') as f:
-            variable=f.read()
-            baka, beka = variable.split((":"))
-            pageId = int(baka)
-            imageId = int(beka)
-        artists = os.listdir(default_path)
-        for i in artists:
-            cpectag = i.replace("\n","")
-            badboys = 0
-            beka = 1
-            with open("updatedartists.txt") as f:
-                content = f.readlines()
-            #print ("List of used artists:",content)
-            if (cpectag + "\n" not in content):
-                while beka == 1:
-                    try:
-                        print ("[INF] Exceptions:",badboys,"|","Used artists:",len(content),"/",len(artists),"| Authors:",len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", succ)
-                        print ("==========================================================\\")
-                        print ("[OK] Current pageId:",pageId,"& imageId:",imageId)
-                        print ("[INF] Current artist:",i)
 
-                        sheet = GelBot()
-                        sheet.analyze_json(imageId)
-                        if (imageId == 4):
-                            pageId += 1
-                            imageId = 0
-                        else:
-                            imageId += 1
-                        with open("artist.txt", "w") as f:
-                            f.write(str(pageId) + ":" + str(imageId))
-                    except Exception as e:
-                        badboys += 1
-                        print (e)
-                        with open("updatedartists.txt", "a") as f:
-                            f.write(i + "\n")
-                        pageId = 0
-                        imageId = 0
-                        break
-                    print ("==========================================================\\")
-            else:
-                print ("[ERR] Artist", cpectag ,"already parsed before!")
-    print ("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>> Task finished!\n\n")
+        if (askuser == "1"):
+            with open('2_progress.txt') as f: # load progress from file
+                pid, iid = f.read().split((":"))
+                pageId = int(pid)
+            currentDirs = len(os.listdir(default_path)) # check count current artists
+            while pageCounter >= 0:
+                print ("/------------------------------\\")
+                print ("PageId:",pageCounter,"| Authors:", len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", total)
+                lets_ident = bot_ident(pageCounter)
+                run_it = bot_main(lets_ident)
+                print ("\\------------------------------/")
+                if run_it != 0:
+                    pageCounter += 1
+                    with open("2_progress.txt", "w") as f:
+                        f.write(str(pageId) + ":" + str(0))
+
+main()
