@@ -73,8 +73,10 @@ def bot_main(api_line):
         baka = newSession.get(api_line) # send get request to gelbooru
         tojson = json.loads(baka.text) # load response to json, it returns 100 images
         lilCounter = 0
+        if len(tojson) == 0:
+            return 0 # we reach the end
+
         for imageString in tojson: # take one by one
-            
             print ("Images was saved: +",total,"| Progress:",lilCounter,"/","1000","| Pages:",pageCounter)
             lilCounter += 1
             getUrl = imageString["file_url"] # main url to download
@@ -124,8 +126,6 @@ def bot_main(api_line):
                         insert_tags(randomFolder, getTags.replace(" ", ";"))
                         total += 1 # increase total saved images counter
         lilCounter = 0
-        print ("+++ 1000 images was checked! +++")
-
     else:
         print ("[ERR] Please specify tags!")
         return 0
@@ -166,6 +166,9 @@ def main():
                     pageCounter += 1
                     with open("2_progress.txt", "w") as f:
                         f.write(str(pageCounter) + ":" + str(0)) # todo: add image ids
+                else: # reach limit of images
+                    print ("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>> Task finished!\n\n")
+                    return 0
         elif (askUser == "2"):
             cleanProgress = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
             if (cleanProgress == "y"):
@@ -192,6 +195,10 @@ def main():
                     pageCounter += 1
                     with open("artist.txt", "w") as f:
                         f.write(str(pageCounter) + ":" + str(0)) # todo: add image ids
+                else: # reach limit of images
+                    print ("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>> Task finished!\n\n")
+                    return 0
+
         elif (askUser == "3"):
             cleanProgress = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
             if (cleanProgress == "y"):
@@ -222,6 +229,9 @@ def main():
                         print ("\\------------------------------/")
                         if run_it != 0:
                             pageCounter += 1
+                        else: # reach limit of images
+                            print ("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>> Task finished!\n\n")
+                            return 0
                 else:
                     print ("[ERR] Artist", additional_tag ,"already parsed before!")
         else:
