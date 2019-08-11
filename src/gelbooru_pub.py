@@ -74,6 +74,7 @@ def bot_main(api_line):
         tojson = json.loads(baka.text) # load response to json, it returns 100 images
         lilCounter = 0
         for imageString in tojson: # take one by one
+            
             print ("Images was saved: +",total,"| Progress:",lilCounter,"/","1000","| Pages:",pageCounter)
             lilCounter += 1
             getUrl = imageString["file_url"] # main url to download
@@ -132,9 +133,12 @@ def bot_main(api_line):
 def main():
     global total
     global pageCounter
+    global additional_tag
+
     while True:
-        askuser = input("""
-    GelBooru Parser v0.4:
+        
+        askUser = input("""
+    GelBooru Parser v0.3:
                     
     1. Collect all images by main tag.
     2. Parse specified artist. 
@@ -142,20 +146,86 @@ def main():
 
     Your choice: """)
 
-        if (askuser == "1"):
+        if (askUser == "1"):
             with open('2_progress.txt') as f: # load progress from file
                 pid, iid = f.read().split((":"))
-                pageId = int(pid)
+                pageCounter = int(pid)
+                # todo: add image ids
             currentDirs = len(os.listdir(default_path)) # check count current artists
             while pageCounter >= 0:
                 print ("/------------------------------\\")
                 print ("PageId:",pageCounter,"| Authors:", len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", total)
                 lets_ident = bot_ident(pageCounter)
-                run_it = bot_main(lets_ident)
+                try:
+                    run_it = bot_main(lets_ident)
+                except json.decoder.JSONDecodeError:
+                    print ("Probably reach limit. Exit.")
+                    return 1
                 print ("\\------------------------------/")
                 if run_it != 0:
                     pageCounter += 1
                     with open("2_progress.txt", "w") as f:
-                        f.write(str(pageId) + ":" + str(0))
+                        f.write(str(pageCounter) + ":" + str(0)) # todo: add image ids
+        elif (askUser == "2"):
+            cleanProgress = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
+            if (cleanProgress == "y"):
+                with open("artist.txt", "w") as f:
+                    f.write("0:0")
+                    print ("[OK] Progess cleaned!")
+            with open('artist.txt') as f: # load progress from file
+                pid, iid = f.read().split((":"))
+                pageCounter = int(pid)
+                # todo: add image ids
+            additional_tag = input ("[INF] Please specify artist name: ")
+            while pageCounter >= 0:
+                currentDirs = len(os.listdir(default_path))
+                print ("/------------------------------\\")
+                print ("PageId:",pageCounter,"| Authors:", len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", total)
+                lets_ident = bot_ident(pageCounter)
+                try:
+                    run_it = bot_main(lets_ident)
+                except json.decoder.JSONDecodeError:
+                    print ("Probably reach limit. Exit.")
+                    return 1
+                print ("\\------------------------------/")
+                if run_it != 0:
+                    pageCounter += 1
+                    with open("artist.txt", "w") as f:
+                        f.write(str(pageCounter) + ":" + str(0)) # todo: add image ids
+        elif (askUser == "3"):
+            cleanProgress = input ("[INF] Do you want to clean up progess to 0:0? y/n: ")
+            if (cleanProgress == "y"):
+                with open("artist.txt", "w") as f:
+                    f.write("0:0")
+                    print ("[OK] Progess cleaned!")
+            currentDirs = len(os.listdir(default_path))
+            with open('artist.txt') as f: # load progress from file
+                pid, iid = f.read().split((":"))
+                pageCounter = int(pid)
+                # todo: add image ids
+            artists = os.listdir(default_path)
+            for i in artists:
+                print ("Collecting artist:",i)
+                additional_tag = i.replace("\n","")
+                with open("updatedartists.txt") as f:
+                    content = f.readlines()
+                if (additional_tag + "\n" not in content):
+                    while pageCounter >= 0:
+                        print ("/------------------------------\\")
+                        print ("PageId:",pageCounter,"| Authors:", len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", total)
+                        lets_ident = bot_ident(pageCounter)
+                        try:
+                            run_it = bot_main(lets_ident)
+                        except json.decoder.JSONDecodeError:
+                            print ("Probably reach limit. Exit.")
+                            return 1
+                        print ("\\------------------------------/")
+                        if run_it != 0:
+                            pageCounter += 1
+                else:
+                    print ("[ERR] Artist", additional_tag ,"already parsed before!")
+        else:
+            print ("Please select between existed items.")
+    print ("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>> Task finished!\n\n")
 
 main()
