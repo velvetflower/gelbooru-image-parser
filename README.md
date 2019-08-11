@@ -1,4 +1,4 @@
-# Gelbooru image parser v0.2
+# Gelbooru image parser v0.4
 
 
 <h2>Work in progress!</h2>
