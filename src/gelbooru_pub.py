@@ -4,7 +4,6 @@ import piexif
 import os
 import time
 
-global total
 newSession = requests.Session() # init new session
 total = 0 # total images saved in current session
 tagDelimiter = "%20" # delimiter between tags
@@ -33,23 +32,26 @@ def insert_tags(name,tags):
         print ("[ERR] Can't add tags to this image!")
         return 0
 
-def check_artist(tags):
-    ready_url = f"https://gelbooru.com//index.php?page=dapi&s=tag&q=index&json=1&limit=1000&names={tags}&api_key={sapi_key}&user_id={suser_id}"
-    print ("[!] Request to server")
-    askForTags = newSession.get(ready_url.replace(" ", tagDelimiter)) # send get request for tags
-    tagsToJson = json.loads(askForTags.text)
-    artistName = "" # ident artist name variable
-    for tag in tagsToJson:
-        if tag["type"] == "artist":
-            artistName = tag["tag"].replace(':','').replace('<','').replace('>','').replace('"','').replace('/','').replace('\\','').replace('|','').replace('?','').replace('*','') # clean artist name so it can be used while creating folders
-            if (artistName != "" and artistName != " "): # be sure that all is going ok
-                return artistName
-            else:
-                print ("[ERR] Artist name is empty.")
-                return 0
-    if artistName == "":
-        print ("[ERR] Can't find artist")
-        return 0
+def check_artist(tags,par):
+    if par == "":
+        ready_url = f"https://gelbooru.com//index.php?page=dapi&s=tag&q=index&json=1&limit=1000&names={tags}&api_key={sapi_key}&user_id={suser_id}"
+        print ("[!] Request to server")
+        askForTags = newSession.get(ready_url.replace(" ", tagDelimiter)) # send get request for tags
+        tagsToJson = json.loads(askForTags.text)
+        artistName = "" # ident artist name variable
+        for tag in tagsToJson:
+            if tag["type"] == "artist":
+                artistName = tag["tag"].replace(':','').replace('<','').replace('>','').replace('"','').replace('/','').replace('\\','').replace('|','').replace('?','').replace('*','') # clean artist name so it can be used while creating folders
+                if (artistName != "" and artistName != " "): # be sure that all is going ok
+                    return artistName
+                else:
+                    print ("[ERR] Artist name is empty.")
+                    return 0
+        if artistName == "":
+            print ("[ERR] Can't find artist")
+            return 0
+    else:
+        return par
 
 def bot_ident(pageId):
     """ ident bot variables and etc ... """
@@ -68,7 +70,7 @@ def bot_ident(pageId):
         print ("[ERR] Tags not setted!")
         return 0
 
-def bot_main(api_line):
+def bot_main(api_line,par,artist):
     global total
     if api_line != 0 :
         print ("[!] Request to server")
@@ -89,7 +91,8 @@ def bot_main(api_line):
 
             print ("[OK] Image name:", getName) # print out imageName
 
-            checkArtist = check_artist(getTags) # check if artist exists in available tags
+            if par == 3:
+                checkArtist = check_artist(getTags,artist) # check if artist exists in available tags
 
             if checkArtist != 0:
 
@@ -159,7 +162,7 @@ def main():
                 print ("PageId:",pageCounter,"| Authors:", len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", total)
                 lets_ident = bot_ident(pageCounter)
                 try:
-                    run_it = bot_main(lets_ident)
+                    run_it = bot_main(lets_ident,1,"")
                 except json.decoder.JSONDecodeError:
                     print ("Probably reach limit. Exit.")
                     return 1
@@ -188,7 +191,7 @@ def main():
                 print ("PageId:",pageCounter,"| Authors:", len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", total)
                 lets_ident = bot_ident(pageCounter)
                 try:
-                    run_it = bot_main(lets_ident)
+                    run_it = bot_main(lets_ident,2,"")
                 except json.decoder.JSONDecodeError:
                     print ("Probably reach limit. Exit.")
                     return 1
@@ -212,7 +215,7 @@ def main():
                 pid, iid = f.read().split((":"))
                 pageCounter = int(pid)
                 # todo: add image ids
-            artists = os.listdir(default_path)
+            artists = os.listdir(default_path) # names of current artist
             for i in artists:
                 print ("Collecting artist:",i)
                 additional_tag = i.replace("\n","")
@@ -221,10 +224,10 @@ def main():
                 if (additional_tag + "\n" not in content):
                     while pageCounter >= 0:
                         print ("/------------------------------\\")
-                        print ("PageId:",pageCounter,"| Authors:", len(os.listdir(default_path)),"/ +",len(os.listdir(default_path))-currentDirs, "| Images: +", total)
+                        print ("PageId:",pageCounter,"| Completed Authors:", len(content),"/",len(os.listdir(default_path)), "| Images: +", total)
                         lets_ident = bot_ident(pageCounter)
                         try:
-                            run_it = bot_main(lets_ident)
+                            run_it = bot_main(lets_ident,3,i)
                         except json.decoder.JSONDecodeError:
                             print ("Empty author. Next.")
                             pageCounter = 0
