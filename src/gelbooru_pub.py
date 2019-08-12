@@ -4,6 +4,7 @@ import piexif
 import os
 import time
 
+global total
 newSession = requests.Session() # init new session
 total = 0 # total images saved in current session
 tagDelimiter = "%20" # delimiter between tags
@@ -34,6 +35,7 @@ def insert_tags(name,tags):
 
 def check_artist(tags):
     ready_url = f"https://gelbooru.com//index.php?page=dapi&s=tag&q=index&json=1&limit=1000&names={tags}&api_key={sapi_key}&user_id={suser_id}"
+    print ("[!] Request to server")
     askForTags = newSession.get(ready_url.replace(" ", tagDelimiter)) # send get request for tags
     tagsToJson = json.loads(askForTags.text)
     artistName = "" # ident artist name variable
@@ -69,7 +71,7 @@ def bot_ident(pageId):
 def bot_main(api_line):
     global total
     if api_line != 0 :
-        print ("[REQ] Request was sent!")
+        print ("[!] Request to server")
         baka = newSession.get(api_line) # send get request to gelbooru
         tojson = json.loads(baka.text) # load response to json, it returns 100 images
         lilCounter = 0
@@ -138,7 +140,7 @@ def main():
     while True:
         
         askUser = input("""
-    GelBooru Parser v0.3:
+    GelBooru Parser v0.5:
                     
     1. Collect all images by main tag.
     2. Parse specified artist. 
@@ -224,15 +226,23 @@ def main():
                         try:
                             run_it = bot_main(lets_ident)
                         except json.decoder.JSONDecodeError:
-                            print ("Probably reach limit. Exit.")
-                            return 1
+                            print ("Empty author. Next.")
+                            pageCounter = 0
+                            with open("updatedartists.txt", "a") as f:
+                                f.write(i + "\n")
+                            break
+                            time.sleep(1)
                         print ("\\------------------------------/")
                         if run_it != 0:
                             pageCounter += 1
                         else: # reach limit of images
-                            print ("\n\n>>>>>>>>>>>>>>>>>>>>>>>>>>> Task finished!\n\n")
-                            return 0
+                            pageCounter = 0
+                            with open("updatedartists.txt", "a") as f:
+                                f.write(i + "\n")
+                            break # next author
+                            time.sleep(1)
                 else:
+                    pageCounter = 0
                     print ("[ERR] Artist", additional_tag ,"already parsed before!")
         else:
             print ("Please select between existed items.")
