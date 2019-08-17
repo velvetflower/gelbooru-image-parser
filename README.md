@@ -1,9 +1,5 @@
 # Gelbooru image parser v0.5
 
-
-<h2>Work in progress!</h2>
-The project is not completed yet.
-
 <h2>Functions:</h2>
 
 - Parse by one tag.
